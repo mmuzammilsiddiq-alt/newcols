@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import compression from 'compression';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
+import path from 'path'; // <--- NEW: Path module import kiya
+import { fileURLToPath } from 'url'; // <--- NEW: URL module import kiya
 import webhookRouter from './routes/webhook.js';
 import apiRouter from './routes/api.js';
 import { initializeRealtimeSubscriptions } from './services/realtime.js';
@@ -16,6 +18,10 @@ dotenv.config();
 const app = express();
 const server = createServer(app);
 const PORT = process.env.PORT || 3000;
+
+// NEW: __dirname setup kiya ESM modules ke liye
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Security middleware
 app.use(helmet({
@@ -45,6 +51,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Compression
 app.use(compression());
 
+// NEW: 1. Express ko batana ke baher pada hua 'dist' (frontend static files) folder serve kare
+app.use(express.static(path.join(__dirname, '../dist')));
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ 
@@ -59,10 +68,19 @@ app.get('/health', (req, res) => {
 app.use('/webhook', webhookRouter);
 app.use('/api', apiRouter);
 
+// NEW: 2. Kisi bhi normal frontend route (jaise /, /login) par index.html bhej dena
+app.get('*', (req, res, next) => {
+  // Agar koi request API ki taraf ja rahi hai jo server me nahi mili, to use agey jaane dein taake 404 handler response de
+  if (req.path.startsWith('/api') || req.path.startsWith('/webhook')) {
+    return next();
+  }
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
+});
+
 // Error handling
 app.use(errorHandler);
 
-// 404 handler
+// 404 handler (Ab yeh sirf galat API routes par chalega)
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
