@@ -4,8 +4,8 @@ import helmet from 'helmet';
 import compression from 'compression';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
-import path from 'path'; // <--- NEW: Path module import kiya
-import { fileURLToPath } from 'url'; // <--- NEW: URL module import kiya
+import path from 'path'; 
+import { fileURLToPath } from 'url'; 
 import webhookRouter from './routes/webhook.js';
 import apiRouter from './routes/api.js';
 import { initializeRealtimeSubscriptions } from './services/realtime.js';
@@ -19,21 +19,27 @@ const app = express();
 const server = createServer(app);
 const PORT = process.env.PORT || 3000;
 
-// NEW: __dirname setup kiya ESM modules ke liye
+// Trust Railway Proxy (Boht zaroori hai rate limiting IP track karne ke liye)
+app.set('trust proxy', 1);
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Security middleware
 app.use(helmet({
-  contentSecurityPolicy: false, // Allow Supabase connections
+  contentSecurityPolicy: false, 
   crossOriginEmbedderPolicy: false
 }));
 
-// Rate limiting
+// Safe Rate Limiter with proper JSON Response
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
-  message: 'Too many requests from this IP, please try again later.'
+  windowMs: 15 * 60 * 1000, // 15 mins
+  max: 500, // Thoda barha diya taake login block na ho
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({ error: 'Too many requests, please try again later.' });
+  }
 });
 
 app.use('/api/', limiter);
@@ -51,7 +57,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Compression
 app.use(compression());
 
-// NEW: 1. Express ko batana ke baher pada hua 'dist' (frontend static files) folder serve kare
+// Express ko batana ke baher pada hua 'dist' folder serve kare
 app.use(express.static(path.join(__dirname, '../dist')));
 
 // Health check endpoint
@@ -68,9 +74,8 @@ app.get('/health', (req, res) => {
 app.use('/webhook', webhookRouter);
 app.use('/api', apiRouter);
 
-// NEW: 2. Kisi bhi normal frontend route (jaise /, /login) par index.html bhej dena
+// Forward frontend routing to index.html
 app.get('*', (req, res, next) => {
-  // Agar koi request API ki taraf ja rahi hai jo server me nahi mili, to use agey jaane dein taake 404 handler response de
   if (req.path.startsWith('/api') || req.path.startsWith('/webhook')) {
     return next();
   }
@@ -80,7 +85,7 @@ app.get('*', (req, res, next) => {
 // Error handling
 app.use(errorHandler);
 
-// 404 handler (Ab yeh sirf galat API routes par chalega)
+// 404 handler for API
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
@@ -119,7 +124,6 @@ process.on('SIGINT', () => {
   });
 });
 
-// Unhandled rejection handler
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
