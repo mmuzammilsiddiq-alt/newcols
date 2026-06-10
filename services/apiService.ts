@@ -2,7 +2,7 @@
 import { User, FacebookPage, Conversation, Message, ApprovedLink, ApprovedMedia } from '../types';
 
 class APIService {
- private apiPath: string = 'https://newcol-production-e71a.up.railway.app/api/db';
+private apiPath: string = '/api/db';
 
   private async relayRequest(action: string, collection: string, body: any) {
     const controller = new AbortController();
