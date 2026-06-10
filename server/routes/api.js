@@ -5,6 +5,43 @@ import logger from '../utils/logger.js';
 const router = express.Router();
 
 /**
+ * 🚀 DEDICATED DATABASE TESTING ROUTE (NEW)
+ * Isko hit karne se direct confirm ho jayega database connected hai ya nahi
+ */
+router.get('/db-test', async (req, res) => {
+  try {
+    const startTime = Date.now();
+    
+    // Database se conversations table ka simple read operation check karte hain
+    const { data, error } = await supabaseAdmin
+      .from('conversations')
+      .select('id')
+      .limit(1);
+
+    if (error) throw error;
+    
+    const duration = Date.now() - startTime;
+
+    res.json({
+      database_connection: "SUCCESS ✅",
+      status: "Database is fully connected and responding to api.js router!",
+      response_time: `${duration}ms`,
+      timestamp: new Date().toISOString(),
+      tested_by: "Express-Router"
+    });
+
+  } catch (error) {
+    logger.error('❌ Database Test Route Failed:', error);
+    res.status(500).json({
+      database_connection: "FAILED ❌",
+      status: "Could not read from database tables.",
+      error_message: error.message || error,
+      help: "Check your Environment Variables on Railway Dashboard for Supabase URL or Keys."
+    });
+  }
+});
+
+/**
  * Sync recent conversations (limit to 5 for quick login)
  * This is called on login - NOT polling
  */
