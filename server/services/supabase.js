@@ -13,26 +13,33 @@ if (!supabaseUrl || !supabaseServiceKey) {
   throw new Error('SUPABASE_URL and SUPABASE_SERVICE_KEY are required');
 }
 
-// Service role client (full access, server-side only)
+// ✨ REALTIME BYPASS STUB: Sockets crash rokne ke liye custom bypass function
+const bypassRealtime = {
+  createClient: () => ({
+    setAuth: () => {},
+    channel: () => ({
+      subscribe: () => ({ receive: () => {} }),
+      unsubscribe: () => {}
+    }),
+    removeChannel: () => {},
+    removeAllChannels: () => {},
+    disconnect: () => {},
+    connect: () => {}
+  })
+};
+
+// 1. Service role client (Bypassed Realtime)
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
   },
-  realtime: {
-    params: {
-      eventsPerSecond: 10
-    }
-  }
+  realtime: bypassRealtime // 🚀 Force Bypass
 });
 
-// Anon client (for client-side operations)
+// 2. Anon client (Bypassed Realtime)
 export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-  realtime: {
-    params: {
-      eventsPerSecond: 10
-    }
-  }
+  realtime: bypassRealtime // 🚀 Force Bypass (Masla yahan phas raha tha!)
 });
 
 // Test connection
