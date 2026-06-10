@@ -10,6 +10,13 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
       },
       plugins: [react()],
+      
+      // 🚀 FRONTEND BUILD ROUTE TO BACKEND: Direct server ke pet mein dist folder banega
+      build: {
+        outDir: 'server/dist',
+        emptyOutDir: true,
+      },
+
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
