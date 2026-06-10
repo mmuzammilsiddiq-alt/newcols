@@ -13,8 +13,7 @@
     "deploy": "npm run build && pm2 start ecosystem.config.js",
     "logs": "pm2 logs messengerflow-server",
     "restart": "pm2 restart messengerflow-server",
-    "install-server": "cd server && pnpm install",
-    "start": "pnpm install-server && vite build && node server/index.js"
+    "start": "node server/index.js"
   },
   "dependencies": {
     "react-dom": "^19.2.3",
