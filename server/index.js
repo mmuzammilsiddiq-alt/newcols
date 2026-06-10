@@ -19,8 +19,11 @@ const app = express();
 const server = createServer(app);
 const PORT = process.env.PORT || 8080;
 
-// Strict Fix for Railway Proxy Error
-app.set('trust proxy', true); // <--- YEH LINE LAZMI LAGAYE KANFI
+// Railway proxy settings check bypass logic
+app.set('trust proxy', 1); 
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Security middleware
 app.use(helmet({
@@ -28,17 +31,19 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// Safe Rate Limiter
+// Professional Rate Limiter without strict validation crashes
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, 
-  max: 1000, 
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // Safe threshold
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false }, // 👈 ERROR FIX: Strict headers validation crash ko disable kar diya
   handler: (req, res) => {
     res.status(429).json({ error: 'Too many requests, please try again later.' });
   }
 });
 
+// Apply rate limiting securely to API endpoints
 app.use('/api/', limiter);
 
 // CORS configuration
@@ -54,11 +59,11 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Compression
 app.use(compression());
 
-// 🚀 CRITICAL FIX: Backend routes ko sub se PEHLE define kar rahe hain
+// Backend routing validation priority
 app.use('/webhook', webhookRouter);
 app.use('/api', apiRouter);
 
-// Express ko batana ke static dist folder serve kare (Yeh niche hona chahiye)
+// Express static path mapping for frontend
 app.use(express.static(path.join(__dirname, '../dist')));
 
 // Health check endpoint
@@ -69,12 +74,12 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Forward frontend routing to index.html (Sub se aakhir me backup catch-all)
+// Single Page Application (SPA) catch-all fallback routing
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
-// Error handling
+// Error handling middleware infrastructure
 app.use(errorHandler);
 
 // Initialize Supabase Realtime subscriptions
@@ -86,7 +91,7 @@ initializeRealtimeSubscriptions()
     logger.error('❌ Failed to initialize Realtime subscriptions:', error);
   });
 
-// Start server
+// Run server listener engine
 server.listen(PORT, '0.0.0.0', () => {
   logger.info(`🚀 MessengerFlow Server running on port ${PORT}`);
 });
