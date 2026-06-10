@@ -8,7 +8,6 @@ import path from 'path';
 import { fileURLToPath } from 'url'; 
 import webhookRouter from './routes/webhook.js';
 import apiRouter from './routes/api.js';
-import { initializeRealtimeSubscriptions } from './services/realtime.js';
 import logger from './utils/logger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import rateLimit from 'express-rate-limit';
@@ -37,7 +36,7 @@ const limiter = rateLimit({
   max: 1000, // Safe threshold
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false }, // 👈 ERROR FIX: Strict headers validation crash ko disable kar diya
+  validate: { xForwardedForHeader: false }, 
   handler: (req, res) => {
     res.status(429).json({ error: 'Too many requests, please try again later.' });
   }
@@ -63,7 +62,7 @@ app.use(compression());
 app.use('/webhook', webhookRouter);
 app.use('/api', apiRouter);
 
-// Express static path mapping for frontend
+// Express static path mapping for frontend (dist folder)
 app.use(express.static(path.join(__dirname, '../dist')));
 
 // Health check endpoint
@@ -75,21 +74,17 @@ app.get('/health', (req, res) => {
 });
 
 // Single Page Application (SPA) catch-all fallback routing
+// ✨ FIXED: Yeh sirf un routes ko handle karega jo /api se shuru nahi hote
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
+  if (!req.path.startsWith('/api') && !req.path.startsWith('/webhook')) {
+    res.sendFile(path.join(__dirname, '../dist/index.html'));
+  } else {
+    res.status(404).json({ error: 'Route not found' });
+  }
 });
 
 // Error handling middleware infrastructure
 app.use(errorHandler);
-
-// Initialize Supabase Realtime subscriptions
-initializeRealtimeSubscriptions()
-  .then(() => {
-    logger.info('✅ Supabase Realtime subscriptions initialized');
-  })
-  .catch((error) => {
-    logger.error('❌ Failed to initialize Realtime subscriptions:', error);
-  });
 
 // Run server listener engine
 server.listen(PORT, '0.0.0.0', () => {
