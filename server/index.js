@@ -17,13 +17,10 @@ dotenv.config();
 
 const app = express();
 const server = createServer(app);
-const PORT = process.env.PORT || 8080; // Railway standard port match kiya
+const PORT = process.env.PORT || 8080;
 
-// Trust Railway Proxy
-app.set('trust proxy', 1);
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Strict Fix for Railway Proxy Error
+app.set('trust proxy', true); // <--- YEH LINE LAZMI LAGAYE KANFI
 
 // Security middleware
 app.use(helmet({
