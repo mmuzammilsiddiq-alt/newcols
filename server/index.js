@@ -12,6 +12,7 @@ import { initializeRealtimeSubscriptions } from './services/realtime.js';
 import logger from './utils/logger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import rateLimit from 'express-rate-limit';
+import { createClient } from '@supabase/supabase-js'; // <--- Testing ke liye import kiya
 
 dotenv.config();
 
@@ -19,7 +20,13 @@ const app = express();
 const server = createServer(app);
 const PORT = process.env.PORT || 3000;
 
-// Trust Railway Proxy (Boht zaroori hai rate limiting IP track karne ke liye)
+// Supabase temporary client setup for testing
+const supabaseTestClient = createClient(
+  process.env.SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || ''
+);
+
+// Trust Railway Proxy
 app.set('trust proxy', 1);
 
 const __filename = fileURLToPath(import.meta.url);
@@ -31,10 +38,10 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// Safe Rate Limiter with proper JSON Response
+// Safe Rate Limiter
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 mins
-  max: 500, // Thoda barha diya taake login block na ho
+  windowMs: 15 * 60 * 1000, 
+  max: 500, 
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
@@ -68,6 +75,45 @@ app.get('/health', (req, res) => {
     uptime: process.uptime(),
     environment: process.env.NODE_ENV
   });
+});
+
+// 🚀 DEDICATED DATABASE TESTING ROUTE (NEW)
+app.get('/api/db-test', async (req, res) => {
+  try {
+    // 1. Database se simple query fetch karke connection check karte hain
+    const startTime = Date.now();
+    
+    // Aapke system ke 'agents' ya kisi bhi table se test read letay hain
+    const { data: readData, error: readError } = await supabaseTestClient
+      .from('agents')
+      .select('count', { count: 'exact', head: true });
+
+    if (readError) throw readError;
+    
+    const duration = Date.now() - startTime;
+
+    // 2. Agar connection perfect hai to screen par response bhejte hain
+    res.json({
+      database_connection: "SUCCESS ✅",
+      status: "Database is fully connected and responding!",
+      response_time: `${duration}ms`,
+      timestamp: new Date().toISOString(),
+      details: {
+        supabase_url_configured: !!process.env.SUPABASE_URL,
+        supabase_key_configured: !!process.env.SUPABASE_SERVICE_KEY,
+        total_agents_tracked: readData || "Connected but table metadata structural"
+      }
+    });
+
+  } catch (error) {
+    logger.error('❌ Database Test Route Failed:', error);
+    res.status(500).json({
+      database_connection: "FAILED ❌",
+      status: "Could not write or read from database.",
+      error_message: error.message || error,
+      help: "Check if your SUPABASE_SERVICE_KEY or SUPABASE_URL variables are identical to your Supabase project dashboard."
+    });
+  }
 });
 
 // Routes
@@ -105,27 +151,6 @@ server.listen(PORT, '0.0.0.0', () => {
   logger.info(`📡 Environment: ${process.env.NODE_ENV}`);
   logger.info(`🔗 Supabase URL: ${process.env.SUPABASE_URL}`);
   logger.info(`⚡ Real-time mode: ACTIVE (0ms delay)`);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    logger.info('HTTP server closed');
-    process.exit(0);
-  });
-});
-
-process.on('SIGINT', () => {
-  logger.info('SIGINT signal received: closing HTTP server');
-  server.close(() => {
-    logger.info('HTTP server closed');
-    process.exit(0);
-  });
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 export default app;
